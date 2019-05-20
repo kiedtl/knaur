@@ -1,0 +1,28 @@
+#!/bin/env python3
+#
+# get a list of outdated AUR packages
+
+from distutils.version import LooseVersion
+from json import loads
+from subprocess import check_output
+from urllib.request import urlopen
+
+aur='https://aur.archlinux.org/rpc/?v=5&'
+newer_fmt = '{Name} {Old} {New}'
+older_fmt = '{Name} {Old} {New}'
+
+ret = check_output(['pacman', '-Qm']).decode().splitlines()
+pkgs = [r.split(' ', 1)[0] for r in ret]
+vers = {r.split(' ', 1)[0]: r.split(' ', 1)[1] for r in ret}
+params = '&arg[]=' + '&arg[]='.join(pkgs)
+with urlopen(aur + 'type=info' + params) as url:
+   info  = loads(url.read().decode())['results']
+
+for pkg in info:
+   params = {'Name': pkg['Name'], 'Old': vers[pkg['Name']], 'New': pkg['Version']}
+   available = LooseVersion(pkg['Version'])
+   installed = LooseVersion(vers[pkg['Name']])
+   if installed < available:
+      print(newer_fmt.format(**params))
+   elif installed != available:
+      print(older_fmt.format(**params))
