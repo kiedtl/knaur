@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#
+# aur:search - search aur packages
+
+SDIR="$( cd "$(dirname "$0")" ; pwd -P )"
+
+info() {
+	printf "\e[0;34m:: \e[1;37m%s\e[0m\n" "$@"
+}
+
+source /usr/share/makepkg/util/message.sh
+source /usr/share/makepkg/util/parseopts.sh
+
+colorize
+
+# this function was stolen from this awesome GitHub repo:
+# https://github.com/AladW/aurutils/blob/master/lib/aur-search
+pkginfo() {
+    local Name Version NumVotes Popularity Maintainer OutOfDate Description
+
+    while IFS=$'\t' read -r Name _ Version Description _ _ _ Maintainer NumVotes Popularity OutOfDate _; do
+        case $OutOfDate in
+            -) unset OutOfDate ;;
+            *) # FIXME move date command to jq (must only be run if OutOfDate is set)
+               OutOfDate="(Out-of-date: $(date -d @"$OutOfDate" '+%d %B %Y'))" ;;
+        esac
+
+        case $Maintainer in
+            -) Maintainer='(Orphaned) ' ;;
+            *) unset Maintainer ;;
+        esac
+
+        LC_NUMERIC=C printf -v Popularity '%.2f' "$Popularity"
+
+        printf "${BLUE}aur/${ALL_OFF}${BOLD}%s ${GREEN}%s ${ALL_OFF}(+%s %s%%) ${RED}%s%s${ALL_OFF}\\n    %s\\n" \
+               "$Name" "$Version" "$NumVotes" "$Popularity" "$Maintainer" "$OutOfDate" "$Description"
+    done
+}
+
+data=$(printf '%s\n' "$@" | ${SDIR}/../lib/search-aurpkgs || exit 1)
+
+echo "${data}" | jq -r --arg key "Name" 'def sel_join:
+            select (length > 0) // ["-"] | join(" ");
+        [.results[]] | sort_by(.[$key])[] | [
+            .Name        // "-",
+            .PackageBase // "-",
+            .Version     // "-",
+            .Description // "-",
+            .URL         // "-",
+            (.Keywords | sel_join),
+            (.License  | sel_join),
+            .Maintainer  // "-",
+            .NumVotes    // "-",
+            .Popularity  // "-",
+            .OutOfDate   // "-",
+            (.FirstSubmitted | todate),
+            (.LastModified   | todate),
+            (.Depends        | sel_join),
+            (.MakeDepends    | sel_join),
+            (.CheckDepends   | sel_join)
+        ] | @tsv' | pkginfo
