@@ -13,11 +13,40 @@ cd /tmp
 
 info "retrieving list of outdated apps"
 
+declare -a pkgs=()
 IFS="
 "
 for line in `${SDIR}/../lib/out-of-date`
 do
-	IFS=' ' read -ra DATA <<< "$line"
+	pkgs+=("${line}")
+done
+
+# list all oudated packages
+if [[ ${#pkgs[@]} -eq 0 ]]; then
+	info "there is nothing to do"
+	exit 1
+else
+	info "upgrading the following packages: "
+fi
+
+IFS="${OIFS}"
+for item in "${pkgs[@]}"
+do
+	IFS=' ' read -ra DATA <<< "$item"
+	PKG="${DATA[0]}"
+	printf "\t\e[1;34m•\e[1;37m $PKG\n\e[0m"
+done
+
+echo
+printf "\e[0;34m:: \e[1;37mcontinue? [y/N] \e[0m"
+read -n 1 -r yn
+case $yn in
+	[Nn]*) exit 1;;
+esac
+
+for item in "${pkgs[@]}"
+do
+	IFS=' ' read -ra DATA <<< "$item"
 	PKG="${DATA[0]}"
 	OVR="${DATA[1]}"
 	SVR="${DATA[2]}"
@@ -39,11 +68,10 @@ do
 
 	# run makepkg
 	info "running 'makepkg -sir'"
-        makepkg -sir
+    makepkg -sir
 
 	rm -rf "./${PKG}"
 	rm -f "${PKG}.tar.gz"
-
 done
 
 IFS="${OIFS}"
