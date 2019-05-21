@@ -15,7 +15,7 @@ info "retrieving list of outdated apps"
 
 IFS="
 "
-for line in `${SDIR}/lib/out-of-date`
+for line in `${SDIR}/../lib/out-of-date`
 do
 	IFS=' ' read -ra DATA <<< "$line"
 	PKG="${DATA[0]}"

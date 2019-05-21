@@ -19,4 +19,6 @@ with urlopen(aur + 'type=info' + params) as url:
 
 for pkg in info:
    params = {'Name': pkg['Name'], 'Old': vers[pkg['Name']], 'New': pkg['Version']}
+   available = LooseVersion(pkg['Version'])
+   installed = LooseVersion(vers[pkg['Name']])
    print(fmt.format(**params))
