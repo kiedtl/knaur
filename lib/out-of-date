@@ -8,8 +8,7 @@ from subprocess import check_output
 from urllib.request import urlopen
 
 aur='https://aur.archlinux.org/rpc/?v=5&'
-newer_fmt = '{Name} {Old} {New}'
-older_fmt = '{Name} {Old} {New}'
+fmt = '{Name} {Old} {New}'
 
 ret = check_output(['pacman', '-Qm']).decode().splitlines()
 pkgs = [r.split(' ', 1)[0] for r in ret]
@@ -20,9 +19,4 @@ with urlopen(aur + 'type=info' + params) as url:
 
 for pkg in info:
    params = {'Name': pkg['Name'], 'Old': vers[pkg['Name']], 'New': pkg['Version']}
-   available = LooseVersion(pkg['Version'])
-   installed = LooseVersion(vers[pkg['Name']])
-   if installed < available:
-      print(newer_fmt.format(**params))
-   elif installed != available:
-      print(older_fmt.format(**params))
+   print(fmt.format(**params))
