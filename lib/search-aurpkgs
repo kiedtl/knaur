@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+#
+# aur:remove - uninstall aur packages
+
+info() {
+	printf "\e[0;34m:: \e[1;37m%s\e[0m\n" "$@"
+}
+
+readonly argv0=rpc
+readonly AUR_LOCATION=${AUR_LOCATION:-'https://aur.archlinux.org'}
+readonly PS4='+(${BASH_SOURCE}:${LINENO}):${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+readonly AUR_COLOR=${AUR_COLOR-auto}
+source /usr/share/makepkg/util/message.sh
+
+# default options
+declare -i rpc_ver=5
+declare    rpc_url="$AUR_LOCATION/rpc/?v=$rpc_ver"
+
+uri_search() {
+    #global rpc_url
+    awk -v rpc="$rpc_url&type=search&by=$1&arg" '{
+        printf "%s=%s\n", rpc, $0
+    }'
+}
+ 
+if [[ ( -t 1 && -t 2 && ! -o xtrace && $AUR_COLOR == auto ) || $AUR_COLOR == always ]] ; then
+    colorize
+fi
+
+uri() { uri_search "${by:-name-desc}"; }
+
+# store output on error
+wget_log=$(mktemp -t wget.XXXXXXXX)
+trap 'rm -rf "$wget_log"' EXIT
+
+# check for interactive terminal
+if [[ -t 0 ]]; then
+    cat >&2 <<EOF
+Warning: Input is read from the terminal. You either know what you
+Warning: are doing, or you forgot to pipe data into $argv0.
+Warning: Press CTRL-D to exit.
+EOF
+fi
+
+# pipeline
+jq -R -r '@uri' | uri | wget -o "$wget_log" -i - -O - -nv
+wget_err=${PIPESTATUS[2]}
+
+if ((wget_err)); then
+    cat "$wget_log" >&2
+    exit "$wget_err"
+fi
