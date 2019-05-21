@@ -11,23 +11,18 @@ main() {
 	SDIR="$( cd "$(dirname "$0")" ; pwd -P )"
 	case $1 in
 		i*)
-			info "ACTION: install"
 			${SDIR}/../libexec/knaur-i ${ARGS} 
 			;;
 		r*) 
-			info "ACTION: remove"
 			${SDIR}/../libexec/knaur-r ${ARGS}
 			;;
 		u*)
-			info "ACTION: upgrade"
 			${SDIR}/../libexec/knaur-u ${ARGS}
 			;;
 		s*)
-			info "ACTION: search"
 			${SDIR}/../libexec/knaur-s ${ARGS}
 			;;
 		d*)
-			info "ACTION: data"
 			${SDIR}/../libexec/knaur-d ${ARGS}
 			;;
 	esac 
