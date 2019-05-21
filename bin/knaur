@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#
+# knaur - KISS AUR helper for Arch Linux
+
+info() {
+        printf "\e[0;34m:: \e[1;37m%s\e[0m\n" "$@"
+}
+
+main() {
+	ARGS="${@: -1}"
+	SDIR="$( cd "$(dirname "$0")" ; pwd -P )"
+	case $1 in
+		i*)
+			info "ACTION: install"
+			${SDIR}/../libexec/knaur-i ${ARGS} 
+			;;
+		r*) 
+			info "ACTION: remove"
+			${SDIR}/../libexec/knaur-r ${ARGS}
+			;;
+		u*)
+			info "ACTION: upgrade"
+			${SDIR}/../libexec/knaur-u ${ARGS}
+			;;
+		s*)
+			info "ACTION: search"
+			${SDIR}/../libexec/knaur-s ${ARGS}
+			;;
+		d*)
+			info "ACTION: data"
+			${SDIR}/../libexec/knaur-d ${ARGS}
+			;;
+	esac 
+}
+
+main "$@"
