@@ -35,9 +35,17 @@ do
 	tar -xvf "${pkg}.tar.gz"
 
 	# move into directory
-        cd "${pkg}"
+    cd "${pkg}"
+
+	# ask user if they want to edit pkgbuild
+	echo
+	printf "\e[0;34m:: \e[1;37medit pkgbuild? [Y/n] \e[0m"
+	read -n 1 -r yn
+	case $yn in
+		[Yy]*) nano ./PKGBUILD;;
+	esac
 
 	# run makepkg
 	info "running 'makepkg -sir'"
-        makepkg -sir
+    makepkg -sir
 done
