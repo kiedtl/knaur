@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# knaur - KISS AUR helper for Arch Linux
+# knaur - AUR helper for Arch Linux
 
 info() {
         printf "\e[0;34m:: \e[1;37m%s\e[0m\n" "$@"
@@ -10,19 +10,19 @@ main() {
 	ARGS="${@: -1}"
 	SDIR="$( cd "$(dirname "$0")" ; pwd -P )"
 	case $1 in
-		i*)
+		-i)
 			${SDIR}/../libexec/knaur-i ${ARGS} 
 			;;
-		r*) 
+		-r) 
 			${SDIR}/../libexec/knaur-r ${ARGS}
 			;;
-		u*)
+		-u)
 			${SDIR}/../libexec/knaur-u ${ARGS}
 			;;
-		s*)
+		-s)
 			${SDIR}/../libexec/knaur-s ${ARGS}
 			;;
-		d*)
+		-d)
 			${SDIR}/../libexec/knaur-d ${ARGS}
 			;;
 	esac 
