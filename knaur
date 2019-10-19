@@ -20,23 +20,27 @@
 version="1.0.0"
 
 # running script directory
-knaur_dir="$(dirname $0)"
-knaur_dir="$( cd ${knaur_dir} && pwd )"
+knaur_dir="$(dirname "$0")"
+knaur_dir="$( cd "${knaur_dir}" && pwd )"
 
 # check that /usr/share/makepkg/ exists
 if [[ ! -d /usr/share/makepkg ]]; then
 	printf "==> ERROR: /usr/share/makepkg doesn't exist! do you have makepkg installed?"
 fi
 
-source /usr/share/makepkg/util/message.sh
-source /usr/share/makepkg/util/parseopts.sh
+# shellcheck disable=SC1091
+source "/usr/share/makepkg/util/message.sh"
+# shellcheck disable=SC1091
+source "/usr/share/makepkg/util/parseopts.sh"
 colorize
 
 # makepkg flags
+# shellcheck disable=SC2153
 if [[ -z ${MAKEPKG_FLAGS} ]]; then
 	makepkg_flags='-sir'
 else
 	makepkg_flags=${MAKEPKG_FLAGS}
+fi
 
 info() {
         printf "\e[0;34m==> INFO: \e[1;37m%s\e[0m\n" "$@"
@@ -68,8 +72,7 @@ pkginfo() {
 }
 
 show_help() {
-	printf "
-knaur ${version}
+	printf "knaur %s
 (c) 2019 Kied Llaentenn
 
 Usage:
@@ -97,11 +100,11 @@ Options:
 	MAKEPKG_FLAGS		custom makepkg flags instead of the default -sir
 	NOEDIT_PKGBUILD		do not prompt to edit pkgbuild.
 
-"
+" "$version"
 }
 
 install() {
-	cd /tmp
+	cd /tmp || die "unable to cd to /tmp"
 
 	for pkg in "$@"
 	do
@@ -125,7 +128,7 @@ install() {
 		tar -xvf "${pkg}.tar.gz"
 
 		# move into directory
-		cd "${pkg}"
+		cd "${pkg}" || die "unable to cd to ${pkg} directory"
 
 		# ask user if they want to edit pkgbuild
 		if [[ -z ${NOEDIT_PKGBUILD} ]]; then
@@ -139,12 +142,12 @@ install() {
 
 		# run makepkg
 		info "running 'makepkg ${makepkg_flags}'"
-		makepkg ${makepkg_flags}
+		makepkg "${makepkg_flags}"
 	done
 }
 
 remove() {
-	cd /tmp	
+	cd /tmp	|| die "unable to cd into /tmp!"
 	for pkg in "$@"
 	do
 		if [[ ! $(pacman -Qi "${pkg}") ]]
@@ -162,14 +165,14 @@ remove() {
 upgrade() {
 	OIFS="${IFS}"
 	ODIR=$(pwd)
-	cd /tmp
+	cd /tmp || die "unable to cd into /tmp"
 	
 	info "retrieving list of outdated apps"
 	
 	declare -a pkgs=()
 	IFS="
 	"
-	for line in `${knaur_dir}/out-of-date`
+	for line in $("${knaur_dir}"/out-of-date)
 	do
 		pkgs+=("${line}")
 	done
@@ -187,15 +190,15 @@ upgrade() {
 	do
 		IFS=' ' read -ra DATA <<< "$item"
 		PKG="${DATA[0]}"
-		printf "\t\e[1;34m•\e[1;37m $PKG\n\e[0m"
+		printf "\t\e[1;34m-\e[1;37m %s\n\e[0m" "${PKG}"
 	done
 
 	IFS="${OIFS}"
-	cd "${ODIR}"
+	cd "${ODIR}" || die "unable to cd into ${ODIR}"
 }
 
 search() {
-	data=$(printf '%s\n' "$@" | ${knaur_dir}/search-aurpkgs || exit 1)
+	data=$(printf '%s\n' "$@" | "${knaur_dir}"/search-aurpkgs || exit 1)
 	echo "${data}" | jq -r --arg key "Name" 'def sel_join:
             select (length > 0) // ["-"] | join(" ");
         [.results[]] | sort_by(.[$key])[] | [
@@ -237,8 +240,7 @@ main() {
 		exit 1
 	fi
 
-	ARGS="${@: -1}"
-	SDIR="$( cd "$(dirname "$0")" ; pwd -P )"
+	declare -a ARGS=("${@: -1}")
 	
 	# show help and exit if no arguments
 	if [[ -z "$1" ]]; then
@@ -248,15 +250,17 @@ main() {
 	case $1 in
 		-h)	show_help
 			;;
-		-i)	install ${ARGS} 
+		-i)	install "${ARGS[@]}" 
 			;;
-		-r) 	remove ${ARGS}
+		-r) 	remove "${ARGS[@]}"
 			;;
-		-u)	upgrade ${ARGS}
+		-u)	upgrade "${ARGS[@]}"
 			;;
-		-s)	search ${ARGS}
+		-s)	
+			# shellcheck disable=SC2128
+			search "${ARGS}"
 			;;
-		-d)	download ${ARGS}
+		-d)	download "${ARGS[@]}"
 			;;
 	esac 
 }
