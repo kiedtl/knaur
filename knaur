@@ -1,0 +1,264 @@
+#!/usr/bin/env bash
+#
+# knaur - AUR helper for Arch Linux
+# 
+# Copyright 2019 Kied Llaentenn
+# Permission to use, copy, modify, and/or distribute this software 
+# for any purpose with or without fee is hereby granted, provided 
+# that the above copyright notice and this permission notice appear
+# in all copies.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+# WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED 
+# WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+# AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+# DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, 
+# DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+# TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR 
+# PERFORMANCE OF THIS SOFTWARE.
+
+version="1.0.0"
+
+# running script directory
+knaur_dir="$(dirname $0)"
+knaur_dir="$( cd ${knaur_dir} && pwd )"
+
+# check that /usr/share/makepkg/ exists
+if [[ ! -d /usr/share/makepkg ]]; then
+	printf "==> ERROR: /usr/share/makepkg doesn't exist! do you have makepkg installed?"
+fi
+
+source /usr/share/makepkg/util/message.sh
+source /usr/share/makepkg/util/parseopts.sh
+colorize
+
+# makepkg flags
+if [[ -z ${MAKEPKG_FLAGS} ]]; then
+	makepkg_flags='-sir'
+else
+	makepkg_flags=${MAKEPKG_FLAGS}
+
+info() {
+        printf "\e[0;34m==> INFO: \e[1;37m%s\e[0m\n" "$@"
+}
+
+# this function was stolen from this awesome GitHub repo:
+# https://github.com/AladW/aurutils/blob/master/lib/aur-search
+# Copyright © 2016-2019, Alad Wenter
+pkginfo() {
+	local Name Version NumVotes Popularity Maintainer OutOfDate Description
+
+	while IFS=$'\t' read -r Name _ Version Description _ _ _ Maintainer NumVotes Popularity OutOfDate _; do
+        	case $OutOfDate in
+        		-) unset OutOfDate ;;
+        		*) # FIXME move date command to jq (must only be run if OutOfDate is set)
+               		OutOfDate="(Out-of-date: $(date -d @"$OutOfDate" '+%d %B %Y'))" ;;
+        	esac
+
+        	case $Maintainer in
+        		-) Maintainer='(Orphaned) ' ;;
+        		*) unset Maintainer ;;
+        	esac
+
+        	LC_NUMERIC=C printf -v Popularity '%.2f' "$Popularity"
+
+		printf "${BLUE}aur/${ALL_OFF}${BOLD}%s ${GREEN}%s ${ALL_OFF}(+%s %s%%) ${RED}%s%s${ALL_OFF}\\n    %s\\n" \
+               		"$Name" "$Version" "$NumVotes" "$Popularity" "$Maintainer" "$OutOfDate" "$Description"
+	done
+}
+
+show_help() {
+	printf "
+knaur ${version}
+(c) 2019 Kied Llaentenn
+
+Usage:
+	[OPTIONS] knaur [ACTION] [PACKAGES]
+
+Examples:
+	knaur -i rsfetch-git
+		(install the rsfetch-git package)
+	MAKEPKG_FLAGS='-sirA' knaur -i polybar-git
+		(change makepkg flags to '-sirA', then
+		install polybar-git)
+	NOEDIT_PKGBUILD=1 knaur -i blabitiblah-bin
+		(install blabitiblah-bin, and don't 
+		prompt to edit pkgbuild.)
+	
+Actions:
+	-i 	install a package.
+	-r	remove a package (basically, sudo pacman -R [package])
+	-u	list all out of date AUR packages.
+	-s 	search packages from the AUR.
+	-d	download a package, but don't build it.
+	-h	show this help message.
+
+Options:
+	MAKEPKG_FLAGS		custom makepkg flags instead of the default -sir
+	NOEDIT_PKGBUILD		do not prompt to edit pkgbuild.
+
+"
+}
+
+install() {
+	cd /tmp
+
+	for pkg in "$@"
+	do
+		# check if package is official repos
+		if pacman -Ssq | sort | grep "^${pkg}\$" > /dev/null; then
+			info "installing '${pkg}' with pacman"
+			sudo pacman -S "${pkg}"
+			exit 0
+		fi
+		
+		# download package with curl if not downloaded already
+		if [[ ! -f "${pkg}.tar.gz" ]]; then
+			info "downloading ${pkg} with curl"
+			curl -LO "https://aur.archlinux.org/cgit/aur.git/snapshot/${pkg}.tar.gz"
+		else
+			info "downloaded package already exists, skipping."
+		fi
+
+		# extract tarball
+		info "extracting '${pkg}' tarball"
+		tar -xvf "${pkg}.tar.gz"
+
+		# move into directory
+		cd "${pkg}"
+
+		# ask user if they want to edit pkgbuild
+		if [[ -z ${NOEDIT_PKGBUILD} ]]; then
+			printf "\n\e[0;34m==> \e[1;37medit pkgbuild? [Y/n] \e[0m"
+			read -n 1 -r yn
+			case $yn in
+				[Yy]*) nano ./PKGBUILD;;
+			esac
+			printf "\n"
+		fi
+
+		# run makepkg
+		info "running 'makepkg ${makepkg_flags}'"
+		makepkg ${makepkg_flags}
+	done
+}
+
+remove() {
+	cd /tmp	
+	for pkg in "$@"
+	do
+		if [[ ! $(pacman -Qi "${pkg}") ]]
+		then
+			info "pacman exited with error: skipping ${pkg}."
+			continue
+		fi
+
+		# remove package with pacman
+		info "removing package ${pkg}"
+		pacman -R "${pkg}"
+	done
+}
+
+upgrade() {
+	OIFS="${IFS}"
+	ODIR=$(pwd)
+	cd /tmp
+	
+	info "retrieving list of outdated apps"
+	
+	declare -a pkgs=()
+	IFS="
+	"
+	for line in `${knaur_dir}/out-of-date`
+	do
+		pkgs+=("${line}")
+	done
+	
+	# list all oudated packages
+	if [[ ${#pkgs[@]} -eq 0 ]]; then
+		info "there is nothing to do"
+		exit 0
+	else
+		info "upgrade the following packages: "
+	fi
+	
+	IFS="${OIFS}"
+	for item in "${pkgs[@]}"
+	do
+		IFS=' ' read -ra DATA <<< "$item"
+		PKG="${DATA[0]}"
+		printf "\t\e[1;34m•\e[1;37m $PKG\n\e[0m"
+	done
+
+	IFS="${OIFS}"
+	cd "${ODIR}"
+}
+
+search() {
+	data=$(printf '%s\n' "$@" | ${knaur_dir}/search-aurpkgs || exit 1)
+	echo "${data}" | jq -r --arg key "Name" 'def sel_join:
+            select (length > 0) // ["-"] | join(" ");
+        [.results[]] | sort_by(.[$key])[] | [
+            .Name        // "-",
+            .PackageBase // "-",
+            .Version     // "-",
+            .Description // "-",
+            .URL         // "-",
+            (.Keywords | sel_join),
+            (.License  | sel_join),
+            .Maintainer  // "-",
+            .NumVotes    // "-",
+            .Popularity  // "-",
+            .OutOfDate   // "-",
+            (.FirstSubmitted | todate),
+            (.LastModified   | todate),
+            (.Depends        | sel_join),
+            (.MakeDepends    | sel_join),
+            (.CheckDepends   | sel_join)
+        ] | @tsv' | pkginfo
+}
+
+download() {
+	for pkg in "$@"
+	do 
+		if [[ -f "${pkg}.tar.gz" ]]; then
+			info "${pkg}.tar.gz exists in the current directory, skipping."
+		else
+			info "downloading ${pkg} with curl"
+			curl -LO "https://aur.archlinux.org/cgit/aur.git/snapshot/${pkg}.tar.gz"
+		fi
+	done
+}
+
+main() {
+
+	if [[ $EUID -eq 0 ]]; then
+		printf "==> ERROR: this must not be run as root!!!\n"
+		exit 1
+	fi
+
+	ARGS="${@: -1}"
+	SDIR="$( cd "$(dirname "$0")" ; pwd -P )"
+	
+	# show help and exit if no arguments
+	if [[ -z "$1" ]]; then
+		show_help && exit 1
+	fi
+
+	case $1 in
+		-h)	show_help
+			;;
+		-i)	install ${ARGS} 
+			;;
+		-r) 	remove ${ARGS}
+			;;
+		-u)	upgrade ${ARGS}
+			;;
+		-s)	search ${ARGS}
+			;;
+		-d)	download ${ARGS}
+			;;
+	esac 
+}
+
+main "$@"
