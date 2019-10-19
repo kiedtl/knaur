@@ -42,6 +42,11 @@ else
 	makepkg_flags=${MAKEPKG_FLAGS}
 fi
 
+die() {
+	printf "\e[0;34m==> FATAL: \e[1;37m%s\e[0m\n" "$@"
+	exit 1
+}
+
 info() {
         printf "\e[0;34m==> INFO: \e[1;37m%s\e[0m\n" "$@"
 }
