@@ -1,29 +1,41 @@
-# knaur
-A very simple Arch Linux AUR helper that stays out of your way.
+# Knaur
+An extremely simple, hackable AUR helper.
 
-## usage
+## Installation
+Clone the repository and run `sudo make install`
+```sh
+$ git clone git@github:lptstr/knaur.git
+$ sudo make install
+```
 
-knaur is currently under heavy development, so many things will be broken.
+## Tests
+> Note: running tests requires `shellcheck` to be installed.
+```sh
+$ cd knaur
+$ make tests
+```
 
-If you want to try this out, clone the repository somewhere and run the ./bin/knaur script.
+## Usage
+knaur is still a work in progress, so expect a few things to be broken.
 
-ACTIONS:
-- i - install
-- r - remove
-- u - upgrade
-- s - search
+**Syntax**:
+```sh
+$ [OPTIONS] knaur [ACTIONS] [PACKAGES]
+```
 
 E.g. to search the AUR for 'rsfetch', try this:
 ```
-./bin/knaur s 'rsfetch'
+./bin/knaur -s 'rsfetch'
 ```
 Or to install a package, try this:
 ```
-./bin/knaur i rsfetch-bin
+./bin/knaur -i rsfetch-bin
 ```
 
-## requirements
-- jq
-- bash
-- python 3+
-- makepkg
+Try `knaur -h` for all options and actions.
+
+## Runtime dependencies
+- `jq` (for parsing json when searching) 
+- `bash` 
+- `python 3+` (for various helper scripts written in Python)
+- `curl` (for downloading packages)
