@@ -177,7 +177,7 @@ upgrade() {
 	declare -a pkgs=()
 	IFS="
 	"
-	for line in $("${knaur_dir}"/out-of-date)
+	for line in $("${knaur_dir}"/knaur-out-of-date)
 	do
 		pkgs+=("${line}")
 	done
@@ -203,7 +203,7 @@ upgrade() {
 }
 
 search() {
-	data=$(printf '%s\n' "$@" | "${knaur_dir}"/search-aurpkgs || exit 1)
+	data=$(printf '%s\n' "$@" | "${knaur_dir}"/knaur-search-aurpkgs || exit 1)
 	echo "${data}" | jq -r --arg key "Name" 'def sel_join:
             select (length > 0) // ["-"] | join(" ");
         [.results[]] | sort_by(.[$key])[] | [
