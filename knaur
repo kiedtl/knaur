@@ -140,7 +140,17 @@ install() {
 			printf "\n\e[0;34m==> \e[1;37medit pkgbuild? [Y/n] \e[0m"
 			read -n 1 -r yn
 			case $yn in
-				[Yy]*) if [ -n ${EDITOR+x} ]; then "$EDITOR" ./PKGBUILD; else nano ./PKGBUILD; fi;; # Use $EDITOR if available, else fallback to nano.
+				[Yy]*) 
+				    if [ -n "${EDITOR+x}" ]; then 
+				        "$EDITOR" ./PKGBUILD
+				    elif [ -n "${VISUAL+x}" ]; then
+				        "$VISUAL" ./PKGBUILD
+				    elif command -v nano >/dev/null 2>&1; then
+				        nano ./PKGBUILD
+				    else
+				        vi ./PKGBUILD
+				    fi
+				    ;; # Use $EDITOR if available, else use $VISUAL, else use nano, else fallback to vi.
 			esac
 			printf "\n"
 		fi
